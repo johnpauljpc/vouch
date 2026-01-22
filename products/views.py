@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework import authentication
 
 from .models import Product
 from .serializers import ProductSerializer
@@ -11,6 +12,7 @@ class CreateListProducts(ListCreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [IsAdminOrReadOnly]
+
 
     def get_queryset(self):
         if not self.request.user.is_superuser:

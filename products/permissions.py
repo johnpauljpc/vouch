@@ -12,5 +12,5 @@ class IsAdminOrReadOnly(BasePermission):
             return True
 
         # Only Superusers can create, update or delete a product`.
-        return request.user.is_superuser
+        return request.user and request.user.is_authenticated and request.user.is_superuser 
 

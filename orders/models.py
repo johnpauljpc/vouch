@@ -41,6 +41,7 @@ class Order(TimeStampedModel):
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="orders")
+    shipping_address = models.ForeignKey('Address', on_delete=models.SET_NULL, null=True,blank=True )
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     is_paid = models.BooleanField(default=False)
@@ -60,21 +61,7 @@ class OrderItem(models.Model):
     def subtotal(self):
         return self.price * self.quantity
     
-class OrderItem(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
-    shipping_address = models.ForeignKey(
-        'Address',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-    product = models.ForeignKey(Product, on_delete=models.PROTECT)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    quantity = models.PositiveIntegerField()
 
-    @property
-    def subtotal(self):
-        return self.price * self.quantity
 
 
 class Address(models.Model):

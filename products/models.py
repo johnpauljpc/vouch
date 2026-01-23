@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
+from django.core.validators import MinValueValidator
 
 # Create your models here.
 
@@ -14,7 +15,7 @@ class Product(TimeStampedModel):
     name = models.CharField(max_length=100)
     slug = models.SlugField(blank=True, unique=True)
     description = models.TextField(blank=True, null=True)
-    price = models.DecimalField(max_digits=9, decimal_places=2)
+    price = models.DecimalField(max_digits=9, decimal_places=2, validators=[MinValueValidator(0)])
     stock = models.PositiveIntegerField(default=0)
     image = models.ImageField(upload_to="products/", blank=True, null=True)
     is_available = models.BooleanField(default=True)

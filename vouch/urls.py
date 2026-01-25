@@ -22,5 +22,8 @@ urlpatterns = [
     path('api/auth/', include('users.urls')),
     # Product URLs
     path("api/products/", include("products.urls")),
+
+    # Cart
+    path('api/cart/', include('orders.cart_urls')),
 ]
 

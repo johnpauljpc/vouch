@@ -24,6 +24,7 @@ class CartItem(TimeStampedModel):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
 
+    @property
     def sub_total(self):
         total = self.product.price * self.quantity
         return total

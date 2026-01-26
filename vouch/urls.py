@@ -25,5 +25,8 @@ urlpatterns = [
 
     # Cart
     path('api/cart/', include('orders.cart_urls')),
+
+    # Order
+    path('api/order/', include('orders.urls')),
 ]
 

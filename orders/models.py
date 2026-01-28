@@ -13,6 +13,7 @@ class Order(TimeStampedModel):
         ("paid", "Paid"),
         ("delivered", "Delivered"),
         ("cancelled", "Cancelled"),
+        ("failed", "Failed"),
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="orders")

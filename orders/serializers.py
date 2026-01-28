@@ -1,12 +1,18 @@
 from rest_framework import serializers
 from django.db import transaction
 
+from cart.models import Cart
 from .models import (
-    Cart,
     Order,
     OrderItem,
     Address,
 )
+
+# Address
+class AddrSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = ['id', 'full_name', 'phone', 'address', 'city', 'state', 'country']
 
 
 # ORDERS

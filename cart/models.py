@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
+from decimal import Decimal
 
 from products.models import TimeStampedModel, Product
 
@@ -27,7 +28,7 @@ class CartItem(TimeStampedModel):
     class Meta:
         unique_together = ['cart', 'product']
     @property
-    def sub_total(self):
+    def sub_total(self)->Decimal:
         total = self.product.price * self.quantity
         return total
     

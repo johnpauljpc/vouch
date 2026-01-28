@@ -5,11 +5,15 @@ from .models import Cart, CartItem
 class AddCartItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source="product.name")
     price = serializers.ReadOnlyField(source="product.price")
-    sub_total = serializers.ReadOnlyField()
+  
 
     class Meta:
         model = CartItem
         fields = ["id", "product", "product_name", "price", "quantity", "sub_total"]
+
+        extra_kwargs = {
+            "sub_total":{'read_only':True}
+        }
 
 
 class CartItemSerializer(serializers.ModelSerializer):

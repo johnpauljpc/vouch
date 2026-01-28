@@ -73,7 +73,6 @@ class AddressDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 
-
 class CheckoutView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = CheckoutSerializer

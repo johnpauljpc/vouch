@@ -11,6 +11,7 @@ from products.models import  Product
 from .serializers import CartSerializer, CartItemSerializer, AddCartItemSerializer
 # Create your views here.
 
+
 class CartDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -18,6 +19,7 @@ class CartDetailView(APIView):
         cart, created = Cart.objects.get_or_create(user=request.user)
         serializer = CartSerializer(cart)
         return Response(serializer.data)
+
 
 
 class AddCartItemView(APIView):

@@ -30,6 +30,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "quantity",
             "sub_total",
         ]
+        
         extra_kwargs = {
             "price": {"read_only": True},
             "quantity": {"reaad_only": True},

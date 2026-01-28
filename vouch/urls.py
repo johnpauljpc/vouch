@@ -26,7 +26,12 @@ urlpatterns = [
     # Cart
     path('api/cart/', include('cart.urls')),
 
+    # Address
+    path('api/addresses/', include('orders.address_urls')),
+
     # Order
     path('api/order/', include('orders.urls')),
+
+    # 
 ]
 

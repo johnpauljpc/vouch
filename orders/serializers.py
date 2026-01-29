@@ -144,6 +144,11 @@ class OrderStatusUpdateSerializer(serializers.Serializer):
         ("cancelled", "Cancelled"),
     ])
 
+    def update(self, instance, validated_data):
+        instance.status = validated_data.get("status")
+        instance.save(update_fields=['status'])
+        return instance
+
 
 class OrderCancelSerializer(serializers.Serializer):
 

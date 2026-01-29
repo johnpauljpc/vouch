@@ -107,8 +107,12 @@ class OrderDetailView(generics.RetrieveAPIView):
 class CancelOrderView(generics.UpdateAPIView):
     serializer_class = OrderCancelSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ['patch']
     
     def get_queryset(self):
         return Order.objects.filter(user=self.request.user, status = 'pending', is_paid= False)
+    
+
+# class StatusUpdateView(generics.up)
 
     

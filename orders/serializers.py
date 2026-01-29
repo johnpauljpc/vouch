@@ -143,3 +143,16 @@ class OrderStatusUpdateSerializer(serializers.Serializer):
         ("delivered", "Delivered"),
         ("cancelled", "Cancelled"),
     ])
+
+
+class OrderCancelSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=[
+        ("pending", "Pending"),
+        ("cancelled", "Cancelled"),
+    ])
+
+    def update(self, instance, validated_data):
+        instance.status = validated_data.get("status")
+        instance.save()
+        return instance
+    

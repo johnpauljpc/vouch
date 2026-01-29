@@ -6,7 +6,7 @@ from rest_framework import status, generics
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from .models import Address, Order, OrderItem
-from .serializers import AddrSerializer,CheckoutSerializer, OrderSerializer, OrderItemSerializer
+from .serializers import AddrSerializer,CheckoutSerializer, OrderSerializer, OrderCancelSerializer
 
 
 @extend_schema_view(
@@ -96,4 +96,19 @@ class OrderListView(generics.ListAPIView):
 
     def get_queryset(self):
         return Order.objects.filter(user=self.request.user).select_related('shipping_address').prefetch_related('items').order_by('-id')
+
+class OrderDetailView(generics.RetrieveAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user)
+    
+class CancelOrderView(generics.UpdateAPIView):
+    serializer_class = OrderCancelSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user, status = 'pending')
+
     

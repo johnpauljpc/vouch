@@ -27,10 +27,12 @@ urlpatterns = [
     path('api/cart/', include('cart.urls')),
 
     # Address
-    path('api/addresses/', include('orders.address_urls')),
+    path('api/addresses/', include('orders.urls.address_urls')),
+    # Checkout
+    path('api/checkout/', include('orders.urls.checkout_url')),
 
     # Order
-    path('api/order/', include('orders.urls')),
+    path('api/order/', include('orders.urls.urls')),
 
     # 
 ]

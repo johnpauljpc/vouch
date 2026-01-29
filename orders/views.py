@@ -124,3 +124,6 @@ class StatusUpdateView(generics.UpdateAPIView):
     http_method_names = ['patch']
 
     
+
+
+

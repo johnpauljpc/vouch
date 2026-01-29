@@ -146,13 +146,20 @@ class OrderStatusUpdateSerializer(serializers.Serializer):
 
 
 class OrderCancelSerializer(serializers.Serializer):
-    status = serializers.ChoiceField(choices=[
-        ("pending", "Pending"),
-        ("cancelled", "Cancelled"),
-    ])
+
 
     def update(self, instance, validated_data):
-        instance.status = validated_data.get("status")
-        instance.save()
+        instance.status = 'cancelled'
+        instance.save(update_fields=['status'])
         return instance
     
+
+    
+    def to_representation(self, instance):
+        # return minimal response
+        return {
+            "id": instance.id,
+            "status": instance.status,
+            "is_paid": instance.is_paid,
+            "total_amount": str(instance.total_amount),
+        }

@@ -109,6 +109,6 @@ class CancelOrderView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user, status = 'pending')
+        return Order.objects.filter(user=self.request.user, status = 'pending', is_paid= False)
 
     

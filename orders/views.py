@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from rest_framework import status, generics
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
-from .models import Address
-from .serializers import AddrSerializer,CheckoutSerializer, OrderSerializers, OrderItemSerializer
+from .models import Address, Order, OrderItem
+from .serializers import AddrSerializer,CheckoutSerializer, OrderSerializer, OrderItemSerializer
 
 
 @extend_schema_view(
@@ -82,3 +82,18 @@ class CheckoutView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         order = serializer.save()
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+
+'''
+GET /api/orders/
+
+GET /api/orders/{id}/
+
+POST /api/orders/{id}/cancel/
+'''
+class OrderListView(generics.ListAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user).select_related('shipping_address').prefetch_related('items').order_by('-id')
+    

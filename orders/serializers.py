@@ -33,26 +33,26 @@ class OrderItemSerializer(serializers.ModelSerializer):
         
         extra_kwargs = {
             "price": {"read_only": True},
-            "quantity": {"reaad_only": True},
-            "sub_total": {"reaad_only": True},
+            "quantity": {"read_only": True},
+            "sub_total": {"read_only": True},
         }
 
 
-class OrderSerializers(serializers.ModelSerializer):
+class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many = True, read_only =True)
     shipping_address = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
-            "user",
-            "shipping_address",
+            'id',
             "total_amount",
             "status",
             "is_paid",
             "created_at",
             "updated_at",
-            'items'
+            'items',
+            "shipping_address"
         ]
 
     def get_shipping_address(self, obj):

@@ -32,7 +32,7 @@ urlpatterns = [
     path('api/checkout/', include('orders.urls.checkout_url')),
 
     # Order
-    path('api/order/', include('orders.urls.urls')),
+    path('api/orders/', include('orders.urls.urls')),
 
     # 
 ]

@@ -145,9 +145,18 @@ class OrderStatusUpdateSerializer(serializers.Serializer):
     ])
 
     def update(self, instance, validated_data):
+        self.initial_status = instance.status
         instance.status = validated_data.get("status")
         instance.save(update_fields=['status'])
         return instance
+    
+    def to_representation(self, instance):
+        
+        return {
+            'msg':'Order status successfully updated!',
+            'previous_status':self.initial_status,
+            'current_status': instance.status
+        }
 
 
 class OrderCancelSerializer(serializers.Serializer):

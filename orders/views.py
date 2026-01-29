@@ -5,8 +5,9 @@ from rest_framework.response import Response
 from rest_framework import status, generics
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
-from .models import Address, Order, OrderItem
-from .serializers import AddrSerializer,CheckoutSerializer, OrderSerializer, OrderCancelSerializer
+from .models import Address, Order
+from .serializers import AddrSerializer,CheckoutSerializer, OrderSerializer, OrderCancelSerializer, OrderStatusUpdateSerializer
+from .permissions import Is_Admin
 
 
 @extend_schema_view(
@@ -113,6 +114,13 @@ class CancelOrderView(generics.UpdateAPIView):
         return Order.objects.filter(user=self.request.user, status = 'pending', is_paid= False)
     
 
-# class StatusUpdateView(generics.up)
+class StatusUpdateView(generics.UpdateAPIView):
+    '''
+    Superusers can modify the order status
+    '''
+    queryset = Order.objects.all()
+    permission_classes = [IsAuthenticated, Is_Admin]
+    serializer_class = OrderStatusUpdateSerializer
+    http_method_names = ['patch']
 
     

@@ -34,6 +34,9 @@ urlpatterns = [
     # Order
     path('api/orders/', include('orders.urls.urls')),
 
+    # payments
+    path("api/prayments/", include('payments.urls')),
+
     # 
 ]
 

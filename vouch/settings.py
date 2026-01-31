@@ -165,7 +165,7 @@ SIMPLE_JWT = {
 
 # SQUAD Payment Gateway Integration
 
-SQUAD_SECRET_KEY = "sandbox_sk_4f56b61ae3c0890a948d5cbed2c927c3b8b9ddef66c6"  # use env var in production
-SQUAD_BASE_URL = "https://sandbox-api-d.squadco.com"  # prod: https://api-d.squadco.com
-SQUAD_CURRENCY = "NGN"
+SQUAD_SECRET_KEY = config('SQUAD_SECRET_KEY')
+SQUAD_BASE_URL = config('SQUAD_BASE_URL')
+SQUAD_CURRENCY = config('SQUAD_CURRENCY')
 # SQUAD_CALLBACK_URL = "https://your-frontend.com/payment/callback"  # optional

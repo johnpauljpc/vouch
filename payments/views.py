@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.decorators import api_view
 from drf_spectacular.utils import extend_schema,OpenApiParameter, OpenApiTypes
 from .models import Order, Payment
 from .serializers import InitiateSquadPaymentSerializer
@@ -238,3 +239,34 @@ class SquadWebhookView(APIView):
         )
 
 
+
+
+
+
+@api_view(['GET'])
+def payment_callback(request):
+    """
+    Handle payment gateway callback using DRF.
+    """
+    # Extract data from JSON body or form data
+    transaction_id = request.GET.get("reference")
+    print(">>>>>>>>>>  ", transaction_id)
+    payment = Payment.objects.filter(reference = transaction_id).first()
+    print(">>>>>>>>>>  ", payment)
+    status_value = payment.status
+    amount = payment.amount
+
+
+
+    if not transaction_id:
+        return Response(
+            {"error": "Missing transaction_id"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    return Response({
+        "message": "Thank You for your payment, it will be verified",
+        "transaction_id": transaction_id,
+        "status": status_value,
+        "amount": amount,
+    }, status=status.HTTP_200_OK)

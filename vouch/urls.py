@@ -35,7 +35,7 @@ urlpatterns = [
     path('api/orders/', include('orders.urls.urls')),
 
     # payments
-    path("api/prayments/", include('payments.urls')),
+    path("api/payments/", include('payments.urls')),
 
     # 
 ]

@@ -49,6 +49,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+ 
 ]
 
 ROOT_URLCONF = "vouch.urls"
@@ -168,4 +169,6 @@ SIMPLE_JWT = {
 SQUAD_SECRET_KEY = config('SQUAD_SECRET_KEY')
 SQUAD_BASE_URL = config('SQUAD_BASE_URL')
 SQUAD_CURRENCY = config('SQUAD_CURRENCY')
-# SQUAD_CALLBACK_URL = "https://your-frontend.com/payment/callback"  # optional
+print(">>>>>>>> ", SQUAD_BASE_URL) 
+SQUAD_CALLBACK_URL = 'http://localhost:8000/api/payments/callback/'
+

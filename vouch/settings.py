@@ -169,6 +169,6 @@ SIMPLE_JWT = {
 SQUAD_SECRET_KEY = config('SQUAD_SECRET_KEY')
 SQUAD_BASE_URL = config('SQUAD_BASE_URL')
 SQUAD_CURRENCY = config('SQUAD_CURRENCY')
-print(">>>>>>>> ", SQUAD_BASE_URL) 
+
 SQUAD_CALLBACK_URL = 'http://localhost:8000/api/payments/callback/'
 

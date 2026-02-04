@@ -250,9 +250,7 @@ def payment_callback(request):
     """
     # Extract data from JSON body or form data
     transaction_id = request.GET.get("reference")
-    print(">>>>>>>>>>  ", transaction_id)
     payment = Payment.objects.filter(reference = transaction_id).first()
-    print(">>>>>>>>>>  ", payment)
     status_value = payment.status
     amount = payment.amount
 

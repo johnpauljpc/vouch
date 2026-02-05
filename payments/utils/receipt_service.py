@@ -103,7 +103,9 @@ def send_receipt_email(to_email: str, pdf_bytes: bytes, receipt_url: str):
         "Thank you for your purchase.\n"
         f"{getattr(settings, 'STORE_NAME', 'My Store')}"
     )
-    email = EmailMessage(subject=subject, body=body, to=[to_email])
+
+    print("Default:  ", settings.DEFAULT_FROM_EMAIL)
+    email = EmailMessage(subject=subject, body=body, from_email=settings.DEFAULT_FROM_EMAIL, to=[to_email])
     email.attach("receipt.pdf", pdf_bytes, "application/pdf") 
     email.send(fail_silently=False)
 

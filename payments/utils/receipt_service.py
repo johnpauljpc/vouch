@@ -89,6 +89,7 @@ def upload_pdf_to_cloudinary(pdf_bytes: bytes, order_id: int) -> dict:
         pdf_bytes,
         resource_type="raw",
         type="upload",
+        folder="receipts",
         format="pdf",
         public_id=public_id,
         overwrite=False,

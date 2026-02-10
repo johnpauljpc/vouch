@@ -82,18 +82,25 @@ def build_receipt_pdf(order) -> bytes:
     buf.seek(0)
     return buf.getvalue()
 
+import io
+import cloudinary.uploader
 
 def upload_pdf_to_cloudinary(pdf_bytes: bytes, order_id: int) -> dict:
-    public_id = f"receipts/receipt-order-{order_id}-{uuid.uuid4().hex}"
+    file_obj = io.BytesIO(pdf_bytes)
+    file_obj.name = f"receipt-order-{order_id}.pdf"  # helps Cloudinary detect filename/type
+
+    public_id = f"receipt-order-{order_id}-{uuid.uuid4().hex}"
+
     return cloudinary.uploader.upload(
-        pdf_bytes,
+        file_obj,
         resource_type="raw",
-        type="upload",
         folder="receipts",
-        format="pdf",
         public_id=public_id,
         overwrite=False,
+        access_mode="public",  # important if your account has access control enabled
     )
+
+
 
 
 def send_receipt_email(to_email: str, pdf_bytes: bytes, receipt_url: str):

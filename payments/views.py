@@ -176,68 +176,6 @@ class VerifySquadPaymentView(APIView):
         )
     ],
 )
-class SquadWebhookView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        header_hash = request.META.get("HTTP_X_SQUAD_ENCRYPTED_BODY")
-        if not header_hash:
-            return Response({"detail": "Missing x-squad-encrypted-body."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Compute HMAC SHA512 of raw payload with your secret key (uppercase hex)
-        computed = hmac.new(
-            key=settings.SQUAD_SECRET_KEY.encode("utf-8"),
-            msg=request.body,
-            digestmod=hashlib.sha512,
-        ).hexdigest().upper()
-
-        if not hmac.compare_digest(computed, header_hash.upper()):
-            return Response({"detail": "Invalid webhook signature."}, status=status.HTTP_400_BAD_REQUEST)
-
-        event = request.data
-        body = event.get("Body") or {}
-        tx_ref = body.get("transaction_ref") or event.get("TransactionRef")
-        tx_status = (body.get("transaction_status") or "").lower()  # "Success"
-
-        if not tx_ref:
-            return Response({"detail": "Missing transaction_ref."}, status=status.HTTP_400_BAD_REQUEST)
-
-        payment = get_object_or_404(Payment, reference=tx_ref)
-        order = payment.order
-
-        # Idempotency: if already success, do nothing (avoids double value)
-        if payment.status == "success" and order.is_paid:
-            return Response(
-                {"response_code": 200, "transaction_reference": tx_ref, "response_description": "Already processed"},
-                status=status.HTTP_200_OK,
-            )
-
-        with transaction.atomic():
-            if tx_status == "success":
-                payment.status = "success"
-                payment.paid_at = timezone.now()
-                payment.save(update_fields=["status", "paid_at"])
-
-                order.is_paid = True
-                order.status = "paid"
-                order.save(update_fields=["is_paid", "status"])
-            else:
-                # If you receive non-success webhook, mark failed/pending as you prefer
-                payment.status = "failed"
-                payment.paid_at = None
-                payment.save(update_fields=["status", "paid_at"])
-
-                if order.status != "cancelled":
-                    order.is_paid = False
-                    order.status = "pending"
-                    order.save(update_fields=["is_paid", "status"])
-
-        # Squad expects a 200 response acknowledging receipt (see docs examples)
-        return Response(
-            {"response_code": 200, "transaction_reference": tx_ref, "response_description": "Success"},
-            status=status.HTTP_200_OK,
-        )
-
 
 
 

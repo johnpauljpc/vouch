@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import InitiateSquadPaymentView, VerifySquadPaymentView, SquadWebhookView, payment_callback
+from .views import InitiateSquadPaymentView, VerifySquadPaymentView, payment_callback
 
 urlpatterns = [
     path("initiate/", InitiateSquadPaymentView.as_view(), name="squad-initiate"),

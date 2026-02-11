@@ -16,7 +16,7 @@ from rest_framework.decorators import api_view
 from drf_spectacular.utils import extend_schema,OpenApiParameter, OpenApiTypes
 from .models import Order, Payment
 from .serializers import InitiateSquadPaymentSerializer
-from .squad_client import squad_initiate_payment, squad_verify_transaction
+from .utils.squad_client import squad_initiate_payment, squad_verify_transaction
 
 
 

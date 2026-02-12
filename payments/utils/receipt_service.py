@@ -120,37 +120,31 @@ def send_receipt_email(to_email: str, pdf_bytes: bytes, receipt_url: str):
 
 
 def generate_upload_and_email_receipt_sync(order):
-    """
-    Idempotent: safe if called multiple times.
-    """
     receipt, _ = Receipt.objects.get_or_create(
         order=order,
         defaults={"receipt_number": _receipt_number(order.id)},
     )
 
-    # Already done → stop
     if receipt.cloudinary_url and receipt.emailed_at:
         return receipt
 
+    pdf_bytes = None  # cache in memory once
+
     try:
-        # If not uploaded, generate+upload
         if not receipt.cloudinary_url:
             pdf_bytes = build_receipt_pdf(order)
             cloud = upload_pdf_to_cloudinary(pdf_bytes, order.id)
-       
 
             receipt.cloudinary_url = cloud.get("secure_url", "")
-        
             receipt.cloudinary_public_id = cloud.get("public_id", "")
-            
             receipt.last_error = ""
             receipt.save(update_fields=["cloudinary_url", "cloudinary_public_id", "last_error", "updated_at"])
 
-        # If not emailed, email now
         if receipt.cloudinary_url and not receipt.emailed_at:
-            pdf_bytes = build_receipt_pdf(order)
+            if pdf_bytes is None:
+                pdf_bytes = build_receipt_pdf(order)
+
             send_receipt_email(order.user.email, pdf_bytes, receipt.cloudinary_url)
-            
             receipt.mark_emailed()
 
         return receipt
@@ -158,5 +152,4 @@ def generate_upload_and_email_receipt_sync(order):
     except Exception as e:
         receipt.last_error = str(e)
         receipt.save(update_fields=["last_error", "updated_at"])
-        # Raise so you notice failures during testing/logging
         raise

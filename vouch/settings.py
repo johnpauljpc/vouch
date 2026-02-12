@@ -217,7 +217,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "resend"
 EMAIL_HOST_PASSWORD =config("RESEND_API_KEY")  # from .env
 
-DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL")
+DEFAULT_FROM_EMAIL = "Vouch <software@archsaintnexus.com>"
 
 
 

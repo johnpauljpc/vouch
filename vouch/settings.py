@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True#config('DEBUG', cast=bool)
+DEBUG = config('DEBUG', cast=bool)
 
 ALLOWED_HOSTS = ['*']
 
@@ -218,6 +218,8 @@ EMAIL_HOST_USER = "resend"
 EMAIL_HOST_PASSWORD =config("RESEND_API_KEY")  # from .env
 
 DEFAULT_FROM_EMAIL = "Vouch <software@archsaintnexus.com>"
+EMAIL_TIMEOUT = 10
+
 
 
 

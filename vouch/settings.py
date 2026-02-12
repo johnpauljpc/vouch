@@ -195,7 +195,7 @@ SQUAD_SECRET_KEY = config('SQUAD_SECRET_KEY')
 SQUAD_BASE_URL = config('SQUAD_BASE_URL')
 SQUAD_CURRENCY = config('SQUAD_CURRENCY')
 
-SQUAD_CALLBACK_URL = 'http://localhost:8000/api/payments/callback/'
+SQUAD_CALLBACK_URL = 'https://vouch-275a.onrender.com/api/payments/callback/'
 
 
 

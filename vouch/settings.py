@@ -215,10 +215,10 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
 EMAIL_HOST_USER = "resend"
-EMAIL_HOST_PASSWORD =config("RESEND_API_KEY")  # from .env
+EMAIL_HOST_PASSWORD = config("RESEND_API_KEY")  # from .env
 
 DEFAULT_FROM_EMAIL = "Vouch <software@archsaintnexus.com>"
-EMAIL_TIMEOUT = 10
+EMAIL_TIMEOUT = 20
 
 
 

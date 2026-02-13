@@ -38,7 +38,7 @@ def send_receipt_email(to_email: str, pdf_bytes: bytes, receipt_url: str):
     subject = "Your order receipt"
     body = (
         "Hi,\n\n"
-        "Your Order was successful. Your receipt is ready:\n"
+        "Your Order was successful. Attached here is your receipt:\n"
         f"{receipt_url}\n\n"
         "Thank you for your purchase.\n"
         f"{getattr(settings, 'STORE_NAME', 'My Store')}"

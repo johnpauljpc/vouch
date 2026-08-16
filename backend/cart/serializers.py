@@ -15,6 +15,15 @@ class AddCartItemSerializer(serializers.ModelSerializer):
             "sub_total":{'read_only':True}
         }
 
+    def validate(self, attrs):
+        product = attrs.get("product")
+        quantity = attrs.get("quantity")
+        if product is not None and quantity is not None and quantity > product.stock:
+            raise serializers.ValidationError(
+                {"quantity": f"Only {product.stock} in stock."}
+            )
+        return attrs
+
 
 class CartItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source="product.name")
@@ -24,6 +33,15 @@ class CartItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartItem
         fields = ["id", "product_name", "price", "quantity", "sub_total"]
+
+    def validate(self, attrs):
+        quantity = attrs.get("quantity", getattr(self.instance, "quantity", None))
+        product = getattr(self.instance, "product", None)
+        if product is not None and quantity is not None and quantity > product.stock:
+            raise serializers.ValidationError(
+                {"quantity": f"Only {product.stock} in stock."}
+            )
+        return attrs
 
 
 class CartSerializer(serializers.ModelSerializer):

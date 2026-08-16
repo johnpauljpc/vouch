@@ -7,11 +7,7 @@ import cloudinary.uploader
 
 
 from ..models import Receipt
-from .pdf_engine import build_receipt_pdf
-
-
-def _receipt_number(order_id: int) -> str:
-    return f"RCPT-{order_id:06d}"
+from .pdf_engine import build_receipt_pdf, _receipt_number
 
 
 

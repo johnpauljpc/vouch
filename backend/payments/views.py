@@ -19,6 +19,41 @@ from .serializers import InitiateSquadPaymentSerializer
 from .utils.squad_client import squad_initiate_payment, squad_verify_transaction
 
 
+def _verify_squad_signature(raw_body: bytes, signature: str) -> bool:
+    """HMAC-SHA512 of the raw request body, uppercase hex, per SQUAD docs."""
+    expected = hmac.new(
+        settings.SQUAD_SECRET_KEY.encode(), raw_body, hashlib.sha512
+    ).hexdigest().upper()
+    return hmac.compare_digest(signature.upper(), expected)
+
+
+def _apply_verified_transaction(payment, tx: dict):
+    """Applies a verified SQUAD transaction payload to the payment + order."""
+    tx_status = (tx.get("transaction_status") or "").lower()
+    order = payment.order
+
+    with transaction.atomic():
+        if tx_status == "success":
+            payment.status = "success"
+            payment.paid_at = timezone.now()
+            payment.save(update_fields=["status", "paid_at"])
+
+            order.is_paid = True
+            order.status = "paid"
+            order.save(update_fields=["is_paid", "status"])
+
+            return "success", "paid"
+
+        payment.status = "failed" if tx_status in ("failed", "abandoned") else "pending"
+        payment.paid_at = None
+        payment.save(update_fields=["status", "paid_at"])
+
+        if not order.is_paid and order.status != "cancelled":
+            order.status = "pending"
+            order.save(update_fields=["status"])
+
+        return payment.status, order.status
+
 
 class InitiateSquadPaymentView(APIView):
     permission_classes = [IsAuthenticated]
@@ -117,38 +152,20 @@ class VerifySquadPaymentView(APIView):
             return Response({"detail": "SQUAD verify failed.", "squad": data}, status=status.HTTP_400_BAD_REQUEST)
 
         tx = data.get("data") or {}
-        tx_status = (tx.get("transaction_status") or "").lower()  # e.g. Success / Failed / Pending / Abandoned
+        payment_status, order_status = _apply_verified_transaction(payment, tx)
         order = payment.order
 
-        with transaction.atomic():
-            if tx_status == "success":
-                payment.status = "success"
-                payment.paid_at = timezone.now()
-                payment.save(update_fields=["status", "paid_at"])
-
-                order.is_paid = True
-                order.status = "paid"
-                order.save(update_fields=["is_paid", "status"])
-
-                return Response(
-                    {
-                        "detail": "Payment verified successfully.",
-                        "reference": payment.reference,
-                        "payment_status": payment.status,
-                        "order_id": order.id,
-                        "order_status": order.status,
-                    },
-                    status=status.HTTP_200_OK,
-                )
-
-            # For failed/abandoned/pending: keep order pending so user can retry
-            payment.status = "failed" if tx_status in ("failed", "abandoned") else "pending"
-            payment.paid_at = None
-            payment.save(update_fields=["status", "paid_at"])
-
-            if not order.is_paid and order.status != "cancelled":
-                order.status = "pending"
-                order.save(update_fields=["status"])
+        if payment_status == "success":
+            return Response(
+                {
+                    "detail": "Payment verified successfully.",
+                    "reference": payment.reference,
+                    "payment_status": payment.status,
+                    "order_id": order.id,
+                    "order_status": order.status,
+                },
+                status=status.HTTP_200_OK,
+            )
 
         return Response(
             {
@@ -166,43 +183,73 @@ class VerifySquadPaymentView(APIView):
 @extend_schema(
     request=OpenApiTypes.OBJECT,
     responses={200: OpenApiTypes.OBJECT},
+    methods=["GET", "POST"],
     parameters=[
+        OpenApiParameter(
+            name="reference",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description="SQUAD transaction reference returned on redirect (GET).",
+        ),
         OpenApiParameter(
             name="x-squad-encrypted-body",
             type=OpenApiTypes.STR,
             location=OpenApiParameter.HEADER,
-            required=True,
+            required=False,
             description="HMAC SHA512 of raw request body using SQUAD secret key (uppercase hex)."
         )
     ],
 )
-
-
-
-
-
-@api_view(['GET'])
+@api_view(["GET", "POST"])
 def payment_callback(request):
     """
-    Handle payment gateway callback using DRF.
+    Server-side SQUAD callback (browser redirect or webhook).
+
+    Verifies the transaction with SQUAD before marking the payment/order as
+    paid - never trusts the client.
     """
-    # Extract data from JSON body or form data
-    transaction_id = request.GET.get("reference")
-    payment = Payment.objects.filter(reference = transaction_id).first()
-    status_value = payment.status
-    amount = payment.amount
-
-
+    if request.method == "GET":
+        transaction_id = request.query_params.get("reference")
+    else:
+        transaction_id = (request.data or {}).get("reference")
 
     if not transaction_id:
         return Response(
-            {"error": "Missing transaction_id"},
-            status=status.HTTP_400_BAD_REQUEST
+            {"error": "Missing reference."},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-    return Response({
-        "message": "Thank You for your payment, it will be verified",
-        "transaction_id": transaction_id,
-        "status": status_value,
-        "amount": amount,
-    }, status=status.HTTP_200_OK)
+    if request.method == "POST":
+        signature = request.headers.get("x-squad-encrypted-body")
+        if signature and not _verify_squad_signature(request.body, signature):
+            return Response(
+                {"error": "Invalid signature."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+    payment = Payment.objects.filter(reference=transaction_id).first()
+    if not payment:
+        return Response(
+            {"error": "Payment not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    code, data = squad_verify_transaction(transaction_id)
+    if code != 200 or not data.get("success"):
+        return Response(
+            {"detail": "SQUAD verification failed.", "squad": data},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    _apply_verified_transaction(payment, data.get("data") or {})
+
+    return Response(
+        {
+            "message": "Thank you for your payment, it will be verified.",
+            "transaction_id": transaction_id,
+            "status": payment.status,
+            "amount": str(payment.amount),
+        },
+        status=status.HTTP_200_OK,
+    )

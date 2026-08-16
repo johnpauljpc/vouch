@@ -10,14 +10,14 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.AlterUniqueTogether(
+            name="cartitem",
+            unique_together=None,
+        ),
         migrations.RemoveField(
             model_name="cartitem",
             name="cart",
         ),
-        # migrations.AlterUniqueTogether(
-        #     name="cartitem",
-        #     unique_together=None,
-        # ),
         migrations.RemoveField(
             model_name="cartitem",
             name="product",

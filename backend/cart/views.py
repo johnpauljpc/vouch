@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -7,9 +7,7 @@ from drf_spectacular.utils import extend_schema
 
 
 from .models import Cart, CartItem
-from products.models import  Product
 from .serializers import CartSerializer, CartItemSerializer, AddCartItemSerializer
-# Create your views here.
 
 
 class CartDetailView(APIView):
@@ -27,25 +25,24 @@ class AddCartItemView(APIView):
 
     @extend_schema(request=AddCartItemSerializer)
     def post(self, request):
-        product_id = request.data.get("product")
-        quantity = int(request.data.get("quantity", 1))
- 
+        serializer = AddCartItemSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product = serializer.validated_data["product"]
+        quantity = serializer.validated_data["quantity"]
 
-        product = get_object_or_404(Product, id=product_id)
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
         item, created = CartItem.objects.get_or_create(
             cart=cart,
             product=product,
-           defaults={'quantity':quantity}
+            defaults={'quantity': quantity},
         )
 
         if not created:
-            item.quantity += quantity
+            item.quantity = min(product.stock, item.quantity + quantity)
             item.save()
 
-        serializer = AddCartItemSerializer(item)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(AddCartItemSerializer(item).data, status=status.HTTP_201_CREATED)
 
 
 class CartItemView(APIView):
@@ -65,18 +62,10 @@ class CartItemView(APIView):
             cart__user=request.user,
         )
 
-        quantity = request.data.get("quantity")
+        serializer = CartItemSerializer(item, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
 
-        if not quantity or int(quantity) < 1:
-            return Response(
-                {"detail": "Quantity must be at least 1"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        item.quantity = int(quantity)
-        item.save()
-
-        serializer = CartItemSerializer(item)
         return Response(serializer.data)
 
     # TO delete

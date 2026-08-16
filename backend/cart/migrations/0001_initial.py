@@ -11,6 +11,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
+        ("orders", "0004_remove_cartitem_cart_alter_cartitem_unique_together_and_more"),
         ("products", "0002_alter_product_price"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]

@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from django.db import transaction
 
-from cart.models import Cart
+from cart.models import Cart, CartItem
+from products.models import Product
 from .models import (
     Order,
     OrderItem,
@@ -86,22 +87,36 @@ class CheckoutSerializer(serializers.Serializer):
     def create(self, validated_data):
         """
         Converts the authenticated user's cart into an Order + OrderItems
-        with price snapshots, then clears the cart.
+        with price snapshots, validates stock, then clears the cart.
         """
         request = self.context["request"]
         user = request.user
 
-        cart = Cart.objects.filter(user=user).prefetch_related("items__product").first()
-        if not cart or cart.items.count() == 0:
-            raise serializers.ValidationError({"detail": "Cart is empty."})
-
-        address = Address.objects.get(id=validated_data["shipping_address_id"], user=user)
-
         with transaction.atomic():
-            # Create order first
+            cart = Cart.objects.filter(user=user).first()
+            if not cart:
+                raise serializers.ValidationError({"detail": "Cart is empty."})
+
+            cart_items = list(
+                CartItem.objects.filter(cart=cart)
+                .select_for_update()
+                .select_related("product")
+            )
+            if not cart_items:
+                raise serializers.ValidationError({"detail": "Cart is empty."})
+
+            # Lock product rows so concurrent checkouts can't oversell
+            product_ids = [item.product_id for item in cart_items]
+            locked_products = {
+                p.id: p
+                for p in Product.objects.select_for_update().filter(id__in=product_ids)
+            }
+
+            address = Address.objects.get(id=validated_data["shipping_address_id"], user=user)
+
             order = Order.objects.create(
                 user=user,
-                shipping_address=address,   
+                shipping_address=address,
                 status="pending",
                 is_paid=False,
                 total_amount=0,
@@ -110,20 +125,27 @@ class CheckoutSerializer(serializers.Serializer):
             total = 0
             order_items = []
 
-            for item in cart.items.all():
-                product = item.product
-                price_snapshot = product.price
+            for item in cart_items:
+                product = locked_products[item.product_id]
                 qty = item.quantity
 
-                order_item = OrderItem(
-                    order=order,
-                    product=product,
-                    price=price_snapshot,
-                    quantity=qty,
-                )
-                order_items.append(order_item)
-                total += price_snapshot * qty
+                if qty > product.stock:
+                    raise serializers.ValidationError(
+                        {"detail": f"Insufficient stock for {product.name}."}
+                    )
 
+                product.stock -= qty
+                order_items.append(
+                    OrderItem(
+                        order=order,
+                        product=product,
+                        price=product.price,
+                        quantity=qty,
+                    )
+                )
+                total += product.price * qty
+
+            Product.objects.bulk_update(locked_products.values(), ["stock"])
             OrderItem.objects.bulk_create(order_items)
 
             order.total_amount = total
@@ -139,9 +161,9 @@ class OrderStatusUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=[
         ("pending", "Pending"),
         ("paid", "Paid"),
-        ("shipped", "Shipped"),
         ("delivered", "Delivered"),
         ("cancelled", "Cancelled"),
+        ("failed", "Failed"),
     ])
 
     def update(self, instance, validated_data):

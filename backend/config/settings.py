@@ -62,7 +62,7 @@ MIDDLEWARE = [
  
 ]
 
-ROOT_URLCONF = "vouch.urls"
+ROOT_URLCONF = "config.urls"
 
 
 AUTH_USER_MODEL = "users.CustomUser"
@@ -81,7 +81,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "vouch.wsgi.application"
+WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Database

@@ -9,12 +9,13 @@ def squad_initiate_payment(*, email: str, amount_kobo: int, transaction_ref: str
         "Content-Type": "application/json",
     }
 
+    currency = getattr(settings, "SQUAD_CURRENCY", "NGN")
     payload = {
         "email": email,
         "amount": amount_kobo,                 # kobo
-        "currency": getattr(settings, "SQUAD_CURRENCY", "NGN"),
-        "initiate_type": "inline",             # required by docs
-        "transaction_ref": transaction_ref,    # optional in docs, but use it for mapping
+        "currency": currency,
+        "initiate_type": "inline",
+        "transaction_ref": transaction_ref,
     }
 
     callback_url = getattr(settings, "SQUAD_CALLBACK_URL", None)

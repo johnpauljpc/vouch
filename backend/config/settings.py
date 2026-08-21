@@ -99,7 +99,12 @@ WSGI_APPLICATION = "config.wsgi.application"
 # }
 
 DATABASES = {
-    "default": dj_database_url.config( default=config("DATABASE_URL")) # from your .env or Render environment
+    # conn_max_age reuses DB connections across requests (critical for remote DBs)
+    "default": dj_database_url.config(
+        default=config("DATABASE_URL"),
+        conn_max_age=600,
+        ssl_require=True,
+    )
 }
 
 
@@ -207,7 +212,15 @@ SQUAD_SECRET_KEY = config('SQUAD_SECRET_KEY')
 SQUAD_BASE_URL = config('SQUAD_BASE_URL')
 SQUAD_CURRENCY = config('SQUAD_CURRENCY')
 
-SQUAD_CALLBACK_URL = 'https://vouch-275a.onrender.com/api/payments/callback/'
+SQUAD_CALLBACK_URL = config(
+    'SQUAD_CALLBACK_URL',
+    default='https://vouch-275a.onrender.com/api/payments/callback/',
+)
+
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
+
+STORE_NAME = config('STORE_NAME', default='Vouch')
+SUPPORT_EMAIL = config('SUPPORT_EMAIL', default='')
 
 
 
@@ -222,12 +235,13 @@ cloudinary.config(
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
-EMAIL_HOST = "smtp.resend.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-
-EMAIL_HOST_USER = "resend"
-EMAIL_HOST_PASSWORD = config("RESEND_API_KEY")  # from .env
+EMAIL_HOST = "smtp.gmail.com"
+# Port 587 is blocked on many networks; implicit-TLS 465 is faster and more reliable
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+EMAIL_TIMEOUT = 15
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL")
 EMAIL_TIMEOUT = 20

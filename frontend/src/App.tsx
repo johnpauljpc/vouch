@@ -9,6 +9,8 @@ import Register from './pages/Register'
 import Products from './pages/Products'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
+import Orders from './pages/Orders'
+import PaymentResult from './pages/PaymentResult'
 import './App.css'
 
 function Header() {
@@ -24,6 +26,7 @@ function Header() {
       <nav className="header-nav">
         {user ? (
           <>
+            <Link to="/orders">Orders</Link>
             <Link to="/cart" className="cart-link">
               Cart
               {itemCount > 0 && <span className="cart-badge">{itemCount}</span>}
@@ -82,6 +85,22 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <Checkout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/orders"
+                element={
+                  <ProtectedRoute>
+                    <Orders />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment/result"
+                element={
+                  <ProtectedRoute>
+                    <PaymentResult />
                   </ProtectedRoute>
                 }
               />

@@ -6,7 +6,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.utils import timezone
 from django.db import transaction
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -243,6 +243,13 @@ def payment_callback(request):
         )
 
     _apply_verified_transaction(payment, data.get("data") or {})
+
+    if request.method == "GET" and settings.FRONTEND_URL:
+        result = "success" if payment.status == "success" else "failed"
+        return redirect(
+            f"{settings.FRONTEND_URL}/payment/result"
+            f"?status={result}&reference={transaction_id}"
+        )
 
     return Response(
         {

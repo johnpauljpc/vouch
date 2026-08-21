@@ -1,75 +1,351 @@
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from django.conf import settings
 import io
-from django.utils import timezone
+import os
 from decimal import Decimal
 
+from django.conf import settings
+from django.utils import timezone
+
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_RIGHT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas as canvas_module
+from reportlab.platypus import (
+    BaseDocTemplate,
+    Frame,
+    NextPageTemplate,
+    PageTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 def _receipt_number(order_id: int) -> str:
     return f"RCPT-{order_id:06d}"
 
-def build_receipt_pdf(order) -> bytes:
-    """
-    Assumes:
-      - order.user.email
-      - order.items.all() yields items with product_name, quantity, unit_price
-      - order.paid_at (optional)
-    """
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    width, height = A4
 
-    store_name = getattr(settings, "STORE_NAME", "My Store")
+# ---------------------------------------------------------------- fonts
 
-    y = height - 60
-    c.setFont("Helvetica-Bold", 18)
-    c.drawString(50, y, store_name)
-    y -= 26
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+_FONT_DIR = os.path.join(_BASE_DIR, "fonts")
 
-    c.setFont("Helvetica", 11)
-    c.drawString(50, y, f"Receipt #: {_receipt_number(order.id)}")
-    y -= 16
-    c.drawString(50, y, f"Order ID: {order.id}")
-    y -= 16
-    c.drawString(50, y, f"Customer: {order.user.email}")
-    y -= 16
+_FONT_CANDIDATES = [
+    os.path.join(_FONT_DIR, "DejaVuSans.ttf"),
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+]
+_FONT_BOLD_CANDIDATES = [
+    os.path.join(_FONT_DIR, "DejaVuSans-Bold.ttf"),
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+]
 
+FONT = "Helvetica"
+FONT_BOLD = "Helvetica-Bold"
+CURRENCY = "NGN "
+
+for _path in _FONT_CANDIDATES:
+    if os.path.exists(_path):
+        try:
+            pdfmetrics.registerFont(TTFont("ReceiptSans", _path))
+            FONT = "ReceiptSans"
+            CURRENCY = "\u20a6 "
+            break
+        except Exception:
+            pass
+
+for _path in _FONT_BOLD_CANDIDATES:
+    if os.path.exists(_path):
+        try:
+            pdfmetrics.registerFont(TTFont("ReceiptSans-Bold", _path))
+            FONT_BOLD = "ReceiptSans-Bold"
+            break
+        except Exception:
+            pass
+
+
+def _money(value) -> str:
+    return f"{CURRENCY}{Decimal(value):,.2f}"
+
+
+# ---------------------------------------------------------------- palette
+
+NAVY = colors.HexColor("#14213D")
+ACCENT = colors.HexColor("#FCA311")
+INK = colors.HexColor("#1F2937")
+MUTED = colors.HexColor("#6B7280")
+LINE = colors.HexColor("#E5E7EB")
+ZEBRA = colors.HexColor("#F8FAFC")
+GREEN = colors.HexColor("#15803D")
+GREEN_BG = colors.HexColor("#DCFCE7")
+
+PAGE_W, PAGE_H = A4
+MARGIN = 18 * mm
+CONTENT_W = PAGE_W - 2 * MARGIN
+
+
+def _store_name() -> str:
+    return getattr(settings, "STORE_NAME", "Vouch")
+
+
+def _support_email() -> str:
+    return getattr(settings, "SUPPORT_EMAIL", "") or getattr(settings, "DEFAULT_FROM_EMAIL", "")
+
+
+def _bare_email(addr: str) -> str:
+    addr = (addr or "").strip()
+    if "<" in addr and ">" in addr:
+        return addr.split("<", 1)[1].split(">", 1)[0].strip()
+    return addr
+
+
+# ---------------------------------------------------------------- styles
+
+_S = {
+    "billed_label": ParagraphStyle("billed_label", fontName=FONT_BOLD, fontSize=8, textColor=MUTED, leading=11),
+    "billed_value": ParagraphStyle("billed_value", fontName=FONT, fontSize=10.5, textColor=INK, leading=15),
+    "meta_label": ParagraphStyle("meta_label", fontName=FONT_BOLD, fontSize=8, textColor=MUTED, leading=11),
+    "meta_value": ParagraphStyle("meta_value", fontName=FONT, fontSize=10.5, textColor=INK, leading=15, alignment=TA_RIGHT),
+    "item": ParagraphStyle("item", fontName=FONT, fontSize=9.5, textColor=INK, leading=13),
+    "small": ParagraphStyle("small", fontName=FONT, fontSize=8, textColor=MUTED, leading=12),
+}
+
+
+# ---------------------------------------------------------------- page furniture
+
+class NumberedCanvas(canvas_module.Canvas):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_states = []
+
+    def showPage(self):
+        self._saved_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        total = len(self._saved_states)
+        for state in self._saved_states:
+            self.__dict__.update(state)
+            self._draw_footer(total)
+            super().showPage()
+        super().save()
+
+    def _draw_footer(self, total_pages: int):
+        c = self
+        c.saveState()
+        c.setStrokeColor(LINE)
+        c.setLineWidth(0.6)
+        c.line(MARGIN, 16 * mm, PAGE_W - MARGIN, 16 * mm)
+        c.setFont(FONT, 7.5)
+        c.setFillColor(MUTED)
+        c.drawString(
+            MARGIN,
+            11 * mm,
+            f"This receipt was electronically generated by {_store_name()} and is valid without signature.",
+        )
+        c.drawRightString(PAGE_W - MARGIN, 11 * mm, f"Page {c.getPageNumber()} of {total_pages}")
+        c.restoreState()
+
+
+def _draw_header(c: canvas_module.Canvas, order):
+    c.saveState()
+
+    c.setFillColor(NAVY)
+    c.rect(0, PAGE_H - 34 * mm, PAGE_W, 34 * mm, stroke=0, fill=1)
+
+    c.setFillColor(colors.white)
+    c.setFont(FONT_BOLD, 21)
+    c.drawString(MARGIN, PAGE_H - 17 * mm, _store_name().upper())
+    c.setFont(FONT, 8.5)
+    support = _bare_email(_support_email())
+    tagline = "Official payment receipt"
+    if support:
+        tagline += f"   ·   {support}"
+    c.drawString(MARGIN, PAGE_H - 23 * mm, tagline)
+
+    c.setFillColor(ACCENT)
+    c.rect(0, PAGE_H - 35.2 * mm, PAGE_W, 1.2 * mm, stroke=0, fill=1)
+
+    label_w = 26 * mm
+    c.setFillColor(GREEN_BG)
+    c.roundRect(PAGE_W - MARGIN - label_w, PAGE_H - 18 * mm, label_w, 8.5 * mm, 2 * mm, stroke=0, fill=1)
+    c.setFillColor(GREEN)
+    c.setFont(FONT_BOLD, 11)
+    c.drawCentredString(PAGE_W - MARGIN - label_w / 2, PAGE_H - 15.4 * mm, "PAID")
+
+    c.setFillColor(colors.HexColor("#C7D0E0"))
+    c.setFont(FONT, 8.5)
+    c.drawString(MARGIN, PAGE_H - 30 * mm, f"Receipt {_receipt_number(order.id)}")
+    c.drawRightString(PAGE_W - MARGIN, PAGE_H - 30 * mm, f"Order #{order.id}")
+
+    c.restoreState()
+
+
+def _on_later_pages(c: canvas_module.Canvas, doc):
+    c.saveState()
+    c.setFillColor(NAVY)
+    c.rect(0, PAGE_H - 14 * mm, PAGE_W, 14 * mm, stroke=0, fill=1)
+    c.setFillColor(colors.white)
+    c.setFont(FONT_BOLD, 10)
+    c.drawString(MARGIN, PAGE_H - 9 * mm, f"{_store_name().upper()} — RECEIPT (CONTINUED)")
+    c.restoreState()
+
+
+# ---------------------------------------------------------------- builders
+
+def _meta_table(order) -> Table:
     paid_at = getattr(order, "paid_at", None) or timezone.now()
-    c.drawString(50, y, f"Paid at: {paid_at.strftime('%Y-%m-%d %H:%M')}")
-    y -= 24
+    payment = getattr(order, "payment", None)
 
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, y, "Items")
-    y -= 16
+    left_rows = [
+        ("BILLED TO", Paragraph(_esc(order.user.get_full_name() or order.user.username), _S["billed_value"])),
+        ("EMAIL", Paragraph(_esc(order.user.email), _S["billed_value"])),
+    ]
+    addr = getattr(order, "shipping_address", None)
+    if addr:
+        left_rows.append((
+            "SHIP TO",
+            Paragraph(
+                _esc(f"{addr.full_name}, {addr.address}, {addr.city}, {addr.state}"),
+                _S["billed_value"],
+            ),
+        ))
 
-    c.setFont("Helvetica", 11)
-    total = Decimal("0.00")
+    right_rows = [
+        ("DATE PAID", Paragraph(paid_at.strftime("%d %b %Y, %H:%M"), _S["meta_value"])),
+        ("PAYMENT METHOD", Paragraph("Card / Bank via SQUAD" if payment else "SQUAD", _S["meta_value"])),
+    ]
+    if payment is not None and getattr(payment, "reference", ""):
+        right_rows.append(("TRANSACTION REF", Paragraph(_esc(payment.reference), _S["meta_value"])))
 
-    for item in order.items.all():
-        line_total = item.quantity * item.price
-        total += line_total
+    rows = max(len(left_rows), len(right_rows))
+    data = []
+    for i in range(rows):
+        l_label, l_value = left_rows[i] if i < len(left_rows) else ("", "")
+        r_label, r_value = right_rows[i] if i < len(right_rows) else ("", "")
+        data.append([
+            Paragraph(l_label, _S["billed_label"]), l_value,
+            Paragraph(r_label, _S["meta_label"]), r_value,
+        ])
 
-        c.drawString(50, y, f"{item.product.name} (x{item.quantity})")
-        c.drawRightString(width - 50, y, f"{line_total:.2f}")
-        y -= 14
+    t = Table(data, colWidths=[24 * mm, 63 * mm, 28 * mm, CONTENT_W - 115 * mm])
+    t.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+    ]))
+    return t
 
-        if y < 120:
-            c.showPage()
-            y = height - 60
-            c.setFont("Helvetica", 11)
 
-    y -= 10
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, y, "Total")
-    c.drawRightString(width - 50, y, f"{total:.2f}")
+def _items_table(order) -> tuple[Table, Decimal]:
+    style_head = ParagraphStyle("th", parent=_S["item"], fontName=FONT_BOLD, textColor=colors.white)
+    data = [[Paragraph("#", style_head), Paragraph("ITEM", style_head), Paragraph("QTY", style_head),
+             Paragraph("UNIT PRICE", style_head), Paragraph("TOTAL", style_head)]]
 
-    y -= 40
-    c.setFont("Helvetica", 10)
-    c.drawString(50, y, "Thank you for your purchase!")
+    subtotal = Decimal("0.00")
+    for idx, item in enumerate(order.items.all(), start=1):
+        line_total = Decimal(item.price) * item.quantity
+        subtotal += line_total
+        data.append([
+            Paragraph(str(idx), _S["item"]),
+            Paragraph(_esc(item.product.name), _S["item"]),
+            Paragraph(str(item.quantity), _S["item"]),
+            Paragraph(_money(item.price), _S["item"]),
+            Paragraph(f"<b>{_money(line_total)}</b>", _S["item"]),
+        ])
 
-    c.showPage()
-    c.save()
+    col_widths = [10 * mm, CONTENT_W - 10 * mm - 16 * mm - 32 * mm - 36 * mm, 16 * mm, 32 * mm, 36 * mm]
+    t = Table(data, colWidths=col_widths, repeatRows=1)
+    style_cmds = [
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("LINEBELOW", (0, 0), (-1, 0), 0, NAVY),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LINEBELOW", (0, 1), (-1, -2), 0.5, LINE),
+    ]
+    for i in range(1, len(data)):
+        if i % 2 == 0:
+            style_cmds.append(("BACKGROUND", (0, i), (-1, i), ZEBRA))
+    t.setStyle(TableStyle(style_cmds))
+    return t, subtotal
 
-    buf.seek(0)
+
+def _totals_table(subtotal: Decimal, order) -> Table:
+    total = Decimal(order.total_amount) or subtotal
+    data = [
+        [Paragraph("Subtotal", _S["item"]), Paragraph(_money(subtotal), ParagraphStyle("r", parent=_S["item"], alignment=TA_RIGHT))],
+    ]
+    if total != subtotal:
+        data.append([Paragraph("Adjustments", _S["item"]), Paragraph(_money(total - subtotal), ParagraphStyle("r2", parent=_S["item"], alignment=TA_RIGHT))])
+    data.append([
+        Paragraph("<b>TOTAL PAID</b>", ParagraphStyle("tl", parent=_S["item"], fontName=FONT_BOLD, fontSize=11)),
+        Paragraph(f"<b>{_money(total)}</b>", ParagraphStyle("tr", parent=_S["item"], fontName=FONT_BOLD, fontSize=11, alignment=TA_RIGHT)),
+    ])
+
+    t = Table(data, colWidths=[CONTENT_W - 70 * mm, 70 * mm], hAlign="RIGHT")
+    t.setStyle(TableStyle([
+        ("LINEABOVE", (0, -1), (-1, -1), 0.8, NAVY),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#EEF2FA")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    return t
+
+
+def _esc(text: str) -> str:
+    return (str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
+# ---------------------------------------------------------------- entry point
+
+def build_receipt_pdf(order) -> bytes:
+    buf = io.BytesIO()
+    doc = BaseDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=MARGIN,
+        rightMargin=MARGIN,
+        topMargin=44 * mm,
+        bottomMargin=22 * mm,
+        title=f"Receipt {_receipt_number(order.id)}",
+        author=_store_name(),
+        subject=f"Payment receipt for order #{order.id}",
+    )
+
+    first_frame = Frame(MARGIN, 22 * mm, CONTENT_W, PAGE_H - 44 * mm - 22 * mm, id="first")
+    later_frame = Frame(MARGIN, 22 * mm, CONTENT_W, PAGE_H - 14 * mm - 22 * mm, id="later")
+    doc.addPageTemplates([
+        PageTemplate(id="First", frames=[first_frame], onPage=lambda c, d: _draw_header(c, order)),
+        PageTemplate(id="Later", frames=[later_frame], onPage=_on_later_pages),
+    ])
+
+    items_table, subtotal = _items_table(order)
+
+    story = [
+        NextPageTemplate("Later"),
+        _meta_table(order),
+        Spacer(1, 8 * mm),
+        items_table,
+        Spacer(1, 4 * mm),
+        _totals_table(subtotal, order),
+        Spacer(1, 10 * mm),
+        Paragraph(
+            "Thank you for your purchase. Keep this receipt for your records — you may need it "
+            "for returns, warranty claims or expense reporting. For any questions about this "
+            f"order, reply to this email or contact us at {_esc(_bare_email(_support_email()))}.",
+            _S["small"],
+        ),
+    ]
+
+    doc.build(story, canvasmaker=NumberedCanvas)
     return buf.getvalue()

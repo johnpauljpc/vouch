@@ -1,17 +1,19 @@
 import { useState } from 'react'
-import { cartApi, type Product } from '../api'
+import type { Product } from '../api'
 import { formatNaira } from '../lib/format'
+import { useCart } from '../context/cart-context'
 
 type AddState = 'idle' | 'adding' | 'added' | 'error'
 
 export default function ProductCard({ product }: { product: Product }) {
   const [state, setState] = useState<AddState>('idle')
+  const { addItem } = useCart()
   const soldOut = product.stock <= 0
 
   const addToCart = async () => {
     setState('adding')
     try {
-      await cartApi.add(product.id, 1)
+      await addItem(product.id, 1)
       setState('added')
     } catch {
       setState('error')
